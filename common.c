@@ -581,7 +581,8 @@ void listDir(char* dirname,struct DirectoryData* dir){
         return;
     }
     if(strcmp(dirname,"CORR")==0){//Corrente
-        printf("Subdirectory presenti in %s:\n",dir->directoryname);
+        printf("Oggetti nella directory corrente %s:\n",dir->directoryname);
+        printf("Subdirectory presenti:\n");
         int count=1;
         for(int i=0;i<MAX_SUB;i++){
             if(dir->sub_directories[i].directoryname[0]!='\0'){
@@ -591,7 +592,7 @@ void listDir(char* dirname,struct DirectoryData* dir){
         }
         if(count==1)printf("\tNon esistono\n");
         count=1;
-        printf("File presenti in %s:\n",dir->directoryname);
+        printf("File presenti in:\n");
         for(int i=0;i<MAX_FILE;i++){
             if(dir->files[i].size!=0){
                 printf("[%d]\t%s\n",count,dir->files[i].filename);
@@ -599,6 +600,7 @@ void listDir(char* dirname,struct DirectoryData* dir){
             }
         }
         if(count==1)printf("\tNon esistono\n");
+        return;
     }else{
     //Cerca la dir nella directory corrente
         struct DirectoryData* copy=NULL;
@@ -606,7 +608,8 @@ void listDir(char* dirname,struct DirectoryData* dir){
             if(dir->sub_directories[i].directoryname[0]!='\0'){
                 if(strcmp(dirname,dir->sub_directories[i].directoryname)==0){//Trovata e stampa
                     copy=copy_dir(&dir->sub_directories[i]);
-                    printf("Subdirectory presenti in %s:\n",copy->directoryname);
+                    printf("Oggetti nella subdirectory %s:\n",copy->directoryname);
+                    printf("Subdirectory presenti in:\n");
                     int count=1;
                     for(int i=0;i<MAX_SUB;i++){
                         if(copy->sub_directories[i].directoryname[0]!='\0'){
@@ -616,7 +619,7 @@ void listDir(char* dirname,struct DirectoryData* dir){
                     }
                     if(count==1)printf("\tNon esistono\n");
                     count=1;
-                    printf("File presenti in %s:\n",copy->directoryname);
+                    printf("File presenti in:\n");
                     for(int i=0;i<MAX_FILE;i++){
                         if(copy->files[i].size!=0){
                             printf("[%d]\t%s\n",count,copy->files[i].filename);
@@ -629,8 +632,8 @@ void listDir(char* dirname,struct DirectoryData* dir){
                 }
             }
         }
-        printf("Non esiste la directory %s nella directory corrente\n",dirname);
     }
+    printf("Non esiste la subdirectory %s, verifica di aver inserito il nome corretto\n",dirname);
 }
 
 struct DirectoryData* copy_dir(struct DirectoryData* dir){

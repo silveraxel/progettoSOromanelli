@@ -37,7 +37,7 @@ void initializeFileSystem(){
     memset(dataBlocks,0,dataBlockSize);
     //Inizializza array dinamici 
     for(int i=0; i<MAXENTRY; i++){
-        directory[i].directoryname[0]='\0';
+        directory[i].directoryname[0]='\0';//inizializzo le directory
         //file
         directory[i].files=(struct FileData*)malloc(fileSize);
         memset(directory[i].files,0,fileSize);
@@ -76,6 +76,7 @@ void freeFileSystem(){
 
 //Funzioni possibili
 int funzDisponibili(struct DirectoryData* dir){
+    if(dir==NULL)handle_error("Directory corrente inesistente\n");
     int subp=0,filep=0;//se 0 non ci sono se 1 ci sono
     for(int i=0;i<MAX_SUB;i++){//Controlla se esistono subdirectory
         if(dir->sub_directories[i].directoryname[0]!='\0'){
@@ -121,7 +122,6 @@ int main(){
     //Inizio programma
     while(true){
         printf("***********************************************************************************************************\n");
-        printf("Stampa oggetti nella directory corrente\n");
         listDir("CORR",dir_corr);
         //Stabilisce funzioni disponibili
         int ope_disponibili=funzDisponibili(dir_corr);
