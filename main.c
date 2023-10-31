@@ -65,10 +65,9 @@ void initializeFileSystem(){
 //Chiude il sistema di file
 void freeFileSystem(){
     for (int i=0;i<MAXENTRY;i++){
-        if(directory[i]!=NULL){
-            if(directory[i].files!=NULL)free(directory[i].files);
-            if(directory[i].sub_directories!=NULL)free(directory[i].sub_directories);
-        }
+        if(directory[i].files!=NULL)free(directory[i].files);
+        if(directory[i].sub_directories!=NULL)free(directory[i].sub_directories);
+        
     }
     if(directory!=NULL)free(directory);
     if(fat!=NULL)free(fat);
@@ -134,7 +133,7 @@ int main(){
         listDir("CORR",dir_corr);
         //Stabilisce funzioni disponibili
         int ope_disponibili=funzDisponibili(dir_corr);
-        printf("Operazioni disponibili:\n");
+        printf("\nOperazioni disponibili:\n");
         if(ope_disponibili==-1)handle_error("Errore: Controllo operazioni disponibili\n");
         if(ope_disponibili>=1){
             printf("\tCREATEFILE, crea un file nella directory %s\n",dir_corr->directoryname);

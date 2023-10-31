@@ -520,6 +520,7 @@ void eraseDir(char* directoryname,struct DirectoryData* parentDirectory,struct D
             }
         }
     }
+    if(discard_dir==NULL)printf("\tNon esiste la subdirectory %s\n",directoryname);
     eraseDirAux(discard_dir,directory,fat,dataBlocks);
     printf("La subdirectory %s e' stata eliminata\n",directoryname);
 }
