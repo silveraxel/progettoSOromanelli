@@ -28,9 +28,9 @@ int containsForbiddenChars(const char *input){
 }
 
 void createFile(char* filename, int size, struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
@@ -56,7 +56,7 @@ void createFile(char* filename, int size, struct DirectoryData* parentDirectory,
         }
     }
     if(k==-1){
-        printf("Errore: spazio insufficiente nella directory per un nuovo file\n");
+        printf("Errore: Spazio insufficiente nella directory per un nuovo file\n");
         return;
     }
     //Cerca blocchi liberi nella FAT
@@ -76,7 +76,7 @@ void createFile(char* filename, int size, struct DirectoryData* parentDirectory,
     }
     //Controllo pre-assegnazione
     if(bstart==-1 || bsecond==-1){
-        printf("Errore: spazio insufficiente nella fat per un nuovo file\n");
+        printf("Errore: Spazio insufficiente nella fat per un nuovo file\n");
         return;
     }
     //Conferma posizione nella fat
@@ -85,7 +85,7 @@ void createFile(char* filename, int size, struct DirectoryData* parentDirectory,
     fat[bsecond].used=1;
     //Assegna valori al file
     struct FileData new_file;
-    if(strncpy(new_file.filename,filename,sizeof(new_file.filename))==NULL)handle_error("Errore: copia nome file durante creazione\n");
+    if(strncpy(new_file.filename,filename,sizeof(new_file.filename))==NULL)handle_error("Errore: Copia nome file durante creazione\n");
     new_file.size=size;
     new_file.start_block=bstart;
     new_file.ind_puntatore=0;
@@ -95,6 +95,7 @@ void createFile(char* filename, int size, struct DirectoryData* parentDirectory,
 }
 
 struct FileData* searchFile(char* filename,struct DirectoryData* dir){
+    if(dir==NULL)handle_error("Errore: dir inesistente\n");
     struct FileData* new_file=NULL;
     for(int i=0;i<MAX_FILE;i++){//cerca nella directory
         if(dir->files[i].size!=0 && strcmp(dir->files[i].filename,filename)==0){
@@ -106,34 +107,40 @@ struct FileData* searchFile(char* filename,struct DirectoryData* dir){
 }
 
 void searchFileAll(char* filename,struct DirectoryData* dir){
-    printf("Presenza di file con nome %s nel sistema\n",filename);
+    if(dir==NULL)handle_error("Errore: Dir inesistente\n");
+    printf("Inizio la ricerca del file con nome %s nel sistema\n",filename);
     int ret=searchFileAllAux(filename,dir,"");
-    if(ret==0)printf("Non ho trovato nessun file con nome %s\n",filename);
+    if(ret==0)printf("\tNon ho trovato nessun file\n");
     printf("Ricerca finita\n");
 }
 
 int searchFileAllAux(char* filename,struct DirectoryData* dir,char* per){
+    if(dir==NULL)handle_error("Errore: Dir inesistente\n");
     struct FileData* new_file=NULL;
     int ret=0;
     //Costruisce il percorso del file
     char percorso[1024];
-    strcpy(percorso,per);
-    strcat(percorso,"/");
-    strncat(percorso,dir->directoryname,strlen(dir->directoryname));
+    if(strcpy(percorso,per)==NULL)handle_error("Errore: Copia percorso durante ricerca\n");
+    if(strcat(percorso,"/")==NULL)handle_error("Errore: Concatenazione percorso durante ricerca\n");
+    if(strncat(percorso,dir->directoryname,strlen(dir->directoryname))==NULL)handle_error("Errore: Concatenazione percorso durante ricerca\n");
     new_file=searchFile(filename,dir);
     if(new_file!=NULL){
-        printf("Esiste il file %s nella directory %s\n",filename,percorso);
+        printf("\tEsiste il file %s nella directory %s\n",filename,percorso);
         ret++;
-    }
-    for(int i=0; i<MAX_SUB;i++){//cerca nelle subdirectory di root
-        if(dir->sub_directories[i].directoryname[0]!='\0'){
-            ret+=searchFileAllAux(filename,&dir->sub_directories[i],percorso);
+    }else{
+        for(int i=0; i<MAX_SUB;i++){//cerca nelle subdirectory di root
+            if(dir->sub_directories[i].directoryname[0]!='\0'){
+                ret+=searchFileAllAux(filename,&dir->sub_directories[i],percorso);
+            }
         }
     }
     return ret;
 }
 
 FileHandle openFile(struct FileData* new_file,int mode,struct FATEntry* fat,struct DataBlock* dataBlocks){
+    if(new_file==NULL)handle_error("Errore: new_file inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     FileHandle fh;
     fh.ind_blocco=new_file->start_block;//primo blocco di dati
     fh.size_old=0;
@@ -157,20 +164,20 @@ FileHandle openFile(struct FileData* new_file,int mode,struct FATEntry* fat,stru
 }
 
 void eraseFile(char* filename, struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     if(new_file->size==0){
-        printf("Errore: spazio per file gia' vuoto\n");
+        printf("Errore: Spazio per file gia' vuoto\n");
         return;
     }
     int ind=new_file->start_block;
@@ -183,12 +190,12 @@ void eraseFile(char* filename, struct DirectoryData* parentDirectory,struct FATE
     }
     memset(new_file,0,sizeof(struct FileData));
     new_file->size=0;//per controlli
-    printf("File %s eliminato\n",filename);
+    printf("\tFile %s eliminato\n",filename);
 }
 
 int addBloccoVuoto(int ind_now,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     //Cerca nella fat
     int k=-1;
     for(int i=0;i<FATSIZE;i++){
@@ -199,7 +206,7 @@ int addBloccoVuoto(int ind_now,struct FATEntry* fat,struct DataBlock* dataBlocks
     }
     //Controllo pre-assegnazione
     if(k==-1){
-        printf("Errore: spazio insufficiente nella fat per aumentare lo spazio nel file... Operazione annullata\n");
+        printf("Errore: Spazio insufficiente nella fat per aumentare lo spazio del file... Operazione annullata\n");
         return -1;
     }
     fat[ind_now].next=k;
@@ -208,16 +215,16 @@ int addBloccoVuoto(int ind_now,struct FATEntry* fat,struct DataBlock* dataBlocks
 }
 
 void writeFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     //File esiste quindi scrivo
@@ -235,7 +242,7 @@ void writeFile(char* filename,struct DirectoryData* parentDirectory,struct FATEn
         exit(EXIT_FAILURE);
     }
     if(fh.size_old==0){//Prima scrittura
-        strncpy(dataBlocks[fh.ind_blocco].data, buffer,strlen(buffer));
+        if(strncpy(dataBlocks[fh.ind_blocco].data, buffer,strlen(buffer))==NULL)handle_error("Errore: Scrittura nel file, prima volta\n");
         printf("File inizializzato correttamente... ");
     }else{
         int blocchi_pieni=(int)floor((double)fh.size_old/1024);
@@ -248,17 +255,17 @@ void writeFile(char* filename,struct DirectoryData* parentDirectory,struct FATEn
             blocchi_pieni--;
         }
         if(ret==0){//NON ha blocchi pieni==>ha un blocco vuoto(perche minimo 2) 
-            strncpy(dataBlocks[fh.ind_blocco].data+fh.current_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos);
+            if(strncpy(dataBlocks[fh.ind_blocco].data+fh.current_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos)==NULL)handle_error("Errore: Scrittura nel file,ret==0\n");
             if(strlen(buffer)+fh.current_pos>1024){
                 fh.ind_blocco=fat[fh.ind_blocco].next;//cambio senza aggiungere
-                strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos));
+                if(strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos))==NULL)handle_error("Errore: Scrittura nel file,ret==0,nuovo blocco\n");
             }
         }else if(ret==1){//Ha almeno un blocco pieno==>no blocco vuoto
-            strncpy(dataBlocks[fh.ind_blocco].data+fh.current_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos);
+            if(strncpy(dataBlocks[fh.ind_blocco].data+fh.current_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos)==NULL)handle_error("Errore: Scrittura nel file,ret==1\n");
             if(strlen(buffer)+fh.current_pos>1024){
                 if(addBloccoVuoto(fh.ind_blocco,fat,dataBlocks)==-1)return;//esce e non continua a scrivere
                 fh.ind_blocco=fat[fh.ind_blocco].next;
-                strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos));
+                if(strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.current_pos))==NULL)handle_error("Errore: Scrittura nel file,ret==1,nuovo blocco\n");
             }else if(strlen(buffer)+fh.current_pos==1024 && fat[fh.ind_blocco].next==-1){
                 //Se riempe il blocco di dati, aumento lo spazio in anticipo
                 if(addBloccoVuoto(fh.ind_blocco,fat,dataBlocks)==-1)return;
@@ -271,16 +278,16 @@ void writeFile(char* filename,struct DirectoryData* parentDirectory,struct FATEn
 }
 
 void writeFileForm(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     //File esiste quindi scrivo
@@ -304,20 +311,20 @@ void writeFileForm(char* filename,struct DirectoryData* parentDirectory,struct F
         nblocchi--;
     }
     char temp[1024];
-    strncpy(temp,dataBlocks[fh.ind_blocco].data,sizeof(dataBlocks[0].data));
+    if(strncpy(temp,dataBlocks[fh.ind_blocco].data,sizeof(dataBlocks[0].data))==NULL)handle_error("Errore: Copia il blocco da sovrascrivere\n");
     //DEBUG printf("%s\n",temp);
-    strncpy(dataBlocks[fh.ind_blocco].data+fh.last_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos);
+    if(strncpy(dataBlocks[fh.ind_blocco].data+fh.last_pos,buffer,sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)==NULL)handle_error("Errore: Aggiungo la nuova parte al blocco\n");
     //Dopo la sovrascrittura copia la parte dopo del blocco
     if(strlen(buffer)+fh.last_pos>1024){
         if(fat[fh.ind_blocco].next==-1){//nuvo blocco
             if(addBloccoVuoto(fh.ind_blocco,fat,dataBlocks)==-1)return;
         }
         fh.ind_blocco=fat[fh.ind_blocco].next;
-        strncpy(temp,dataBlocks[fh.ind_blocco].data,sizeof(dataBlocks[0].data));
-        strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos));
-        strncpy(dataBlocks[fh.ind_blocco].data+(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)),temp+(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)),sizeof(dataBlocks[fh.ind_blocco].data)-(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)));
+        if(strncpy(temp,dataBlocks[fh.ind_blocco].data,sizeof(dataBlocks[0].data))==NULL)handle_error("Errore: Copia il blocco da sovrascrivere2\n");
+        if(strncpy(dataBlocks[fh.ind_blocco].data,buffer+(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos),strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos))==NULL)handle_error("Errore: Aggiungo la nuova parte al blocco2\n");
+        if(strncpy(dataBlocks[fh.ind_blocco].data+(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)),temp+(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)),sizeof(dataBlocks[fh.ind_blocco].data)-(strlen(buffer)-(sizeof(dataBlocks[fh.ind_blocco].data)-fh.last_pos)))==NULL)handle_error("Errore: Ricopia la parte dopo2\n");
     }else{
-        strncpy(dataBlocks[fh.ind_blocco].data+(fh.last_pos+strlen(buffer)),temp+(fh.last_pos+strlen(buffer)),sizeof(dataBlocks[fh.ind_blocco].data)-(fh.last_pos+strlen(buffer)));
+        if(strncpy(dataBlocks[fh.ind_blocco].data+(fh.last_pos+strlen(buffer)),temp+(fh.last_pos+strlen(buffer)),sizeof(dataBlocks[fh.ind_blocco].data)-(fh.last_pos+strlen(buffer)))==NULL)handle_error("Errore: Ricopia la parte dopo\n");
     }
     new_file->ind_puntatore+=strlen(buffer);
     if(fh.size_old+strlen(buffer)>512) new_file->size+=strlen(buffer);
@@ -325,16 +332,16 @@ void writeFileForm(char* filename,struct DirectoryData* parentDirectory,struct F
 }
 
 void readFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     //File esiste quindi leggo
@@ -351,20 +358,21 @@ void readFile(char* filename,struct DirectoryData* parentDirectory,struct FATEnt
         }
         fh.ind_blocco=fat[fh.ind_blocco].next;
     }
+    new_file->ind_puntatore=fh.size_old;
     printf("Operazione conclusa con successo\n");
 }
 
 void readFileFrom(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     //File esiste quindi leggo
@@ -398,16 +406,16 @@ void readFileFrom(char* filename,struct DirectoryData* parentDirectory,struct FA
 }
 
 void seekFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
     if(containsForbiddenChars(filename)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
     }
     struct FileData* new_file=searchFile(filename,parentDirectory);
     if(new_file==NULL){
-        printf("Non esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
+        printf("\tNon esiste il file %s nella directory %s\n",filename,parentDirectory->directoryname);
         return;
     }
     //File esiste quindi scrivo
@@ -416,11 +424,11 @@ void seekFile(char* filename,struct DirectoryData* parentDirectory,struct FATEnt
         printf("Errore: Non riesce ad aprire il file\n");
         return;
     }
-    printf("Seek del file %s, posizione ora %d\n",filename,fh.last_pos);
+    printf("Seek del file %s, posizione del puntatore ora %d\n",filename,fh.last_pos);
     int d=-1;
     char buffer[10];
     while(d<0 || d>fh.size_old){//Cicla fino a un inserimento corretto
-        printf("Inserisci un numero compreso tra 0-%d: ",fh.size_old);
+        printf("\tInserisci un numero compreso tra 0-%d: ",fh.size_old);
         if(fgets(buffer, sizeof(buffer), stdin) != (char*)buffer){
             fprintf(stderr, "Error while reading from stdin, exiting...\n");
             exit(EXIT_FAILURE);
@@ -429,12 +437,12 @@ void seekFile(char* filename,struct DirectoryData* parentDirectory,struct FATEnt
         d=atoi(buffer);
     }
     new_file->ind_puntatore=d;
-    printf("Puntatore del del file %s spostato nel punto %d\n",filename,new_file->ind_puntatore);
+    printf("Puntatore del file %s spostato nel punto %d\n",filename,new_file->ind_puntatore);
 }
 
 void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct DirectoryData* directory){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(directory==NULL)handle_error("directory inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(directory==NULL)handle_error("Errore: Directory inesistente\n");
     if(containsForbiddenChars(directoryname)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
@@ -461,7 +469,7 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
         }
     }
     if(k==-1){
-        printf("Errore: spazio insufficiente nella directory per una nuova directory\n");
+        printf("Errore: Spazio insufficiente nella directory per una nuova directory\n");
         return;
     }
     //Cerca uno spazio libero nella struttura directory
@@ -474,11 +482,11 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
         }
     }
     if(j==-1){
-        printf("Errore: spazio insufficiente nella struct directory per una nuova directory\n");
+        printf("Errore: Spazio insufficiente nella struct directory per una nuova directory\n");
         return;
     }
     //Crea subdirectory
-    if(strncpy(directory[j].directoryname,directoryname,sizeof(directory[j].directoryname))==NULL)handle_error("Errore copia stringa per nome\n");
+    if(strncpy(directory[j].directoryname,directoryname,sizeof(directory[j].directoryname))==NULL)handle_error("Errore: Copia stringa per nome\n");
     
     //Inizializza
     for(int i=0;i<MAX_FILE;i++){
@@ -493,10 +501,10 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
 }
 
 void eraseDir(char* directoryname,struct DirectoryData* parentDirectory,struct DirectoryData* directory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(parentDirectory==NULL)handle_error("parentDirectory inesistente\n");
-    if(directory==NULL)handle_error("directory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
+    if(parentDirectory==NULL)handle_error("Errore: ParentDirectory inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
+    if(directory==NULL)handle_error("Errore: Directory inesistente\n");
     if(containsForbiddenChars(directoryname)==1){//Scritto male 
         printf("Errore: chiusura operazione per errore... \n");
         return;
@@ -507,23 +515,20 @@ void eraseDir(char* directoryname,struct DirectoryData* parentDirectory,struct D
         if(parentDirectory->sub_directories[s].directoryname[0]!='\0'){
             if(strcmp(directoryname,parentDirectory->sub_directories[s].directoryname)==0){
                 discard_dir=dir_corrente(&parentDirectory->sub_directories[s]);
+                if(discard_dir==NULL)handle_error("Errore: Copia della directory da eliminare\n");
                 break;
             }
         }
-    }
-    if(discard_dir==NULL){
-        printf("Non esiste la subdirectory %s\n",directoryname);
-        return;//Non esiste la dir che voglio eliminare
     }
     eraseDirAux(discard_dir,directory,fat,dataBlocks);
     printf("La subdirectory %s e' stata eliminata\n",directoryname);
 }
 
 void eraseDirAux(struct DirectoryData* dir,struct DirectoryData* directory,struct FATEntry* fat,struct DataBlock* dataBlocks){
-    if(directory==NULL)handle_error("directory inesistente\n");
-    if(fat==NULL)handle_error("fat inesistente\n");
-    if(dataBlocks==NULL)handle_error("dataBlocks inesistente\n");
-    if(dir==NULL)handle_error("dir inesistente\n");
+    if(dir==NULL)handle_error("Errore: Dir inesistente\n");
+    if(fat==NULL)handle_error("Errore: Fat inesistente\n");
+    if(dataBlocks==NULL)handle_error("Errore: DataBlocks inesistente\n");
+    if(directory==NULL)handle_error("Errore: Directory inesistente\n");
 
     for(int f=0;f<MAX_FILE;f++){//Elimina file
         if(dir->files[f].size!=0){
@@ -548,6 +553,7 @@ void eraseDirAux(struct DirectoryData* dir,struct DirectoryData* directory,struc
 }
 
 struct DirectoryData* changeDir(struct DirectoryData* dir,char *dirname){
+    if(dir==NULL)handle_error("Errore: Dir inesistente\n");
     struct DirectoryData* new_dir=NULL;
     if(containsForbiddenChars(dirname)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
@@ -559,12 +565,14 @@ struct DirectoryData* changeDir(struct DirectoryData* dir,char *dirname){
             return dir;
         }
         new_dir=dir_corrente(dir->par_directory);
+        if(new_dir==NULL)handle_error("Errore nel cambio della nuova directory\n");
         printf("Ora ti trovi nella directory %s\n",new_dir->directoryname);
         return new_dir;
     }else{
         for(int i=0;i<MAX_SUB;i++){//Cerca nella subdirectory
             if(strcmp(dirname,dir->sub_directories[i].directoryname)==0){
                 new_dir=dir_corrente(&dir->sub_directories[i]);
+                if(new_dir==NULL)handle_error("Errore nel cambio della nuova directory\n");
                 printf("Ora ti trovi nella directory %s\n",new_dir->directoryname);
                 return new_dir;
             }
@@ -575,7 +583,7 @@ struct DirectoryData* changeDir(struct DirectoryData* dir,char *dirname){
 }
 
 void listDir(char* dirname,struct DirectoryData* dir){
-    if(dir==NULL)handle_error("dir inesistente\n");
+    if(dir==NULL)handle_error("Errore: Dir inesistente\n");
     if(containsForbiddenChars(dirname)==1){//Scritto male 
         printf("Chiusura operazione per errore... \n");
         return;
@@ -641,9 +649,9 @@ struct DirectoryData* copy_dir(struct DirectoryData* dir){
     if(dir==NULL)return NULL;
     //Crea una copia
     struct DirectoryData* dir_corr= (struct DirectoryData*)malloc(sizeof(struct DirectoryData));
-    if(dir_corr==NULL)handle_error("Errore di allocazione di memoria.\n");
+    if(dir_corr==NULL)handle_error("Errore: Allocazione copia della struttura\n");
     // Copia i dati dal nodo originale al nuovo nodo
-    strncpy(dir_corr->directoryname,dir->directoryname,sizeof(dir_corr->directoryname));
+    if(strncpy(dir_corr->directoryname,dir->directoryname,sizeof(dir_corr->directoryname))==NULL)handle_error("Errore strncpy copy_dir\n");
     dir_corr->files= dir->files;
     dir_corr->sub_directories= dir->sub_directories;
     dir_corr->par_directory=dir->par_directory;

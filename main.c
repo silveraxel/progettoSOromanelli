@@ -20,7 +20,7 @@ struct DataBlock* dataBlocks;
 //Inizializzare il sistema di file
 void initializeFileSystem(){
     int fd=open("filesystem.bin",O_RDWR|O_CREAT|O_TRUNC,DEFFILEMODE);
-    if(fd<0)handle_error("Errore apertura fd\n");
+    if(fd<0)handle_error("Errore: Apertura fd\n");
     //Dim max per le strutture dinamiche
     size_t directorySize=MAXENTRY*sizeof(struct DirectoryData);
     size_t fatSize=FATSIZE*sizeof(struct FATEntry);
@@ -29,8 +29,11 @@ void initializeFileSystem(){
     size_t fileSize=MAX_FILE*sizeof(struct FileData);
     //Memoria dinamica per le strutture
     directory=(struct DirectoryData*)malloc(directorySize);
+    if(directory==NULL)handle_error("Errore: Allocazione struttura directory\n");
     fat=(struct FATEntry*)malloc(fatSize);
+    if(fat==NULL)handle_error("Errore: Allocazione struttura fat\n");
     dataBlocks=(struct DataBlock*)malloc(dataBlockSize);
+    if(dataBlocks==NULL)handle_error("Errore: Allocazione struttura dataBlocks\n");
     //Inizializza le strutture
     memset(directory,0,directorySize);
     memset(fat,0,fatSize);
@@ -40,15 +43,17 @@ void initializeFileSystem(){
         directory[i].directoryname[0]='\0';//inizializzo le directory
         //file
         directory[i].files=(struct FileData*)malloc(fileSize);
+        if(directory[i].files==NULL)handle_error("Errore: Allocazione struttura files della directory\n");
         memset(directory[i].files,0,fileSize);
         //subdirectories
         directory[i].sub_directories=(struct DirectoryData*)malloc(subdirectorySize);
+        if(directory[i].sub_directories==NULL)handle_error("Errore: Allocazione struttura subdirectory della directory\n");
         memset(directory[i].sub_directories,0,subdirectorySize);
     }
     //Setta memoria
     int len=directorySize+fatSize+dataBlockSize;
     if((mmapped_buffer=mmap(NULL,len,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0))==MAP_FAILED)handle_error("Errore apertura mmap fd\n");
-    if(ftruncate(fd,len)!=0)handle_error("Errore truncate fd\n");
+    if(ftruncate(fd,len)!=0)handle_error("Errore: Truncate fd\n");
     //Scrivi le strutture nella memoria mappata
     memcpy(mmapped_buffer,directory,directorySize);
     memcpy(mmapped_buffer+directorySize,fat,fatSize);
@@ -60,12 +65,14 @@ void initializeFileSystem(){
 //Chiude il sistema di file
 void freeFileSystem(){
     for (int i=0;i<MAXENTRY;i++){
-        free(directory[i].files);
-        free(directory[i].sub_directories);
+        if(directory[i]!=NULL){
+            if(directory[i].files!=NULL)free(directory[i].files);
+            if(directory[i].sub_directories!=NULL)free(directory[i].sub_directories);
+        }
     }
-    free(directory);
-    free(fat);
-    free(dataBlocks);
+    if(directory!=NULL)free(directory);
+    if(fat!=NULL)free(fat);
+    if(dataBlocks!=NULL)free(dataBlocks);
     //Dealloca la memoria
     if (mmapped_buffer!=NULL){
         if(munmap(mmapped_buffer,(MAXENTRY*sizeof(struct DirectoryData))+(FATSIZE*sizeof(struct FATEntry))+(FATSIZE*sizeof(struct DataBlock)))==-1)handle_error("Error munmap fd\n");
@@ -76,7 +83,7 @@ void freeFileSystem(){
 
 //Funzioni possibili
 int funzDisponibili(struct DirectoryData* dir){
-    if(dir==NULL)handle_error("Directory corrente inesistente\n");
+    if(dir==NULL)handle_error("Errore: Directory corrente inesistente\n");
     int subp=0,filep=0;//se 0 non ci sono se 1 ci sono
     for(int i=0;i<MAX_SUB;i++){//Controlla se esistono subdirectory
         if(dir->sub_directories[i].directoryname[0]!='\0'){
@@ -117,7 +124,9 @@ int main(){
         directory[0].sub_directories[i].directoryname[0]='\0';//per controlli futuri
     }
     struct DirectoryData *dir_root=dir_corrente(&directory[0]);
+    if(dir_root==NULL)handle_error("Errore: Inizializzazione variabile dir_root\n");
     struct DirectoryData *dir_corr=dir_corrente(&directory[0]);//Cambia con le operazioni
+    if(dir_root==NULL)handle_error("Errore: Inizializzazione variabile dir_corr\n");
     printf("Creazione File System.....\n");
     //Inizio programma
     while(true){
@@ -126,7 +135,7 @@ int main(){
         //Stabilisce funzioni disponibili
         int ope_disponibili=funzDisponibili(dir_corr);
         printf("Operazioni disponibili:\n");
-        if(ope_disponibili==-1)handle_error("Errore controllo operazioni disponibili\n");
+        if(ope_disponibili==-1)handle_error("Errore: Controllo operazioni disponibili\n");
         if(ope_disponibili>=1){
             printf("\tCREATEFILE, crea un file nella directory %s\n",dir_corr->directoryname);
             printf("\tCREATEDIR, crea una subdirectory nella directory %s\n",dir_corr->directoryname);
