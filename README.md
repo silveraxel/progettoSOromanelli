@@ -1,2 +1,2 @@
 # progettoSOromanelli
-Progetto sistemi operativi, matricola 1945758
+Progetto sistemi operativi PSEUDO FAT, matricola 1945758 Romanelli Axel
