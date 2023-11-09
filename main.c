@@ -13,79 +13,116 @@
 #include "common.h"
 
 void *mmapped_buffer;//Disco
-struct DirectoryData* directory;
-struct FATEntry* fat;
-struct DataBlock* dataBlocks;
+int len,fd;
+struct FileSystem fs;
 
 //Inizializzare il sistema di file
-void initializeFileSystem(){
-    int fd=open("filesystem.bin",O_RDWR|O_CREAT|O_TRUNC,DEFFILEMODE);
-    if(fd<0)handle_error("Errore: Apertura fd\n");
-    //Dim max per le strutture dinamiche
-    size_t directorySize=MAXENTRY*sizeof(struct DirectoryData);
-    size_t fatSize=FATSIZE*sizeof(struct FATEntry);
-    size_t dataBlockSize=FATSIZE*sizeof(struct DataBlock);
-    size_t subdirectorySize=MAX_SUB*sizeof(struct DirectoryData);
-    size_t fileSize=MAX_FILE*sizeof(struct FileData);
-    //Memoria dinamica per le strutture
-    directory=(struct DirectoryData*)malloc(directorySize);
-    if(directory==NULL)handle_error("Errore: Allocazione struttura directory\n");
-    fat=(struct FATEntry*)malloc(fatSize);
-    if(fat==NULL)handle_error("Errore: Allocazione struttura fat\n");
-    dataBlocks=(struct DataBlock*)malloc(dataBlockSize);
-    if(dataBlocks==NULL)handle_error("Errore: Allocazione struttura dataBlocks\n");
-    //Inizializza le strutture
-    memset(directory,0,directorySize);
-    memset(fat,0,fatSize);
-    memset(dataBlocks,0,dataBlockSize);
-    //Inizializza array dinamici 
-    for(int i=0; i<MAXENTRY; i++){
-        directory[i].directoryname[0]='\0';//inizializzo le directory
-        //file
-        directory[i].files=(struct FileData*)malloc(fileSize);
-        if(directory[i].files==NULL)handle_error("Errore: Allocazione struttura files della directory\n");
-        memset(directory[i].files,0,fileSize);
-        //subdirectories
-        directory[i].sub_directories=(struct DirectoryData*)malloc(subdirectorySize);
-        if(directory[i].sub_directories==NULL)handle_error("Errore: Allocazione struttura subdirectory della directory\n");
-        memset(directory[i].sub_directories,0,subdirectorySize);
-    }
+void creazioneSistema(){
+    fd=open("filesystem.bin",O_RDWR|O_CREAT,0644);
+    if(fd<0)handle_error("Errore: Crea fd\n");
+    //Dim max per le strutture 
+    len=sizeof(struct FileSystem);
     //Setta memoria
-    int len=directorySize+fatSize+dataBlockSize;
-    if((mmapped_buffer=mmap(NULL,len,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0))==MAP_FAILED)handle_error("Errore apertura mmap fd\n");
     if(ftruncate(fd,len)!=0)handle_error("Errore: Truncate fd\n");
-    //Scrivi le strutture nella memoria mappata
-    memcpy(mmapped_buffer,directory,directorySize);
-    memcpy(mmapped_buffer+directorySize,fat,fatSize);
-    memcpy(mmapped_buffer+directorySize+fatSize,dataBlocks,dataBlockSize);
-    //Chiudi il file descriptor
-    close(fd);
+    if((mmapped_buffer=mmap(NULL,len,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0))==MAP_FAILED)handle_error("Errore apertura mmap fd\n");
+    //Inizializza le strutture
+    for(int i=0; i<MAXENTRY; i++){
+        //inizializzo le fs.directory
+        fs.directory[i].directoryname[0]='\0';//per controlli futuri
+        //file
+        for(int j=0;j<MAX_FILE;j++){
+            fs.directory[i].files[j].size=0;//per controlli futuri
+        }
+        //subdirectories
+        for(int j=0;j<MAX_SUB;j++){
+            fs.directory[i].sub_directories[j]=(struct DirectoryData*)malloc(sizeof(struct DirectoryData));
+            if(fs.directory[i].sub_directories[j]==NULL)handle_error("Errore: Allocazione struttura sub directory della directory\n");
+            //memset(directory[i].sub_directories[j],0,sizeof(struct DirectoryData));
+            fs.directory[i].sub_directories[j]->directoryname[0]='\0';//per controlli futuri
+        }
+    }
 }
 
-//Chiude il sistema di file
-void freeFileSystem(){
+//Setto valori iniziali 
+void initializeFileSystem(){
+    //Inizializza FAT
+    for(int i=0;i<FATSIZE;i++){
+        fs.fat[i].used=0;
+        fs.fat[i].next=-1;
+    }
+    //Root
+    strcpy(fs.directory[0].directoryname,"root");
+    fs.directory[0].par_directory=NULL;
+    fs.directory[0].dir_indice=0;
+    fs.directory[0].parentdir_indice=-1;//Solo root
+}
+
+//Recupero del file system
+void recuperoSistema(){
+    fd=open("filesystem.bin",O_RDWR,0644);
+    if(fd<0)handle_error("Errore: Crea fd\n");
+    //Dim max per le strutture 
+    len=sizeof(struct FileSystem);
+    if((mmapped_buffer=mmap(NULL,len,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0))==MAP_FAILED)handle_error("Errore recupero mmap fd\n");
+    memcpy(&fs, mmapped_buffer, len);
+    for(int i=0; i<MAXENTRY; i++){
+        //Aggiorniamo il valore null
+        //subdirectories
+        for(int j=0;j<MAX_SUB;j++){
+            fs.directory[i].sub_directories[j]=(struct DirectoryData*)malloc(sizeof(struct DirectoryData));
+            if(fs.directory[i].sub_directories[j]==NULL)handle_error("Errore: Allocazione struttura sub directory della directory\n");
+            fs.directory[i].sub_directories[j]->directoryname[0]='\0';//per controlli futuri
+        }
+    }
+}
+
+void recuperoGerarchia(){
+    for (int i=0; i<MAXENTRY;i++){
+        for (int j=0; j<MAX_FILE;j++){
+            if(fs.directory[i].files[j].size>0)fs.directory[i].files[j].par_directory=&fs.directory[i];
+        }
+        if(fs.directory[i].parentdir_indice!=-1){
+            int padre=fs.directory[i].parentdir_indice;
+            fs.directory[i].par_directory=&fs.directory[padre];
+            for (int j=0; j<MAX_SUB;j++){
+                if(fs.directory[padre].sub_directories[j]->directoryname[0]=='\0'){
+                    fs.directory[padre].sub_directories[j]=&fs.directory[i];
+                    break;
+                }
+            }
+        }
+    }
+}
+
+//Chiudo e dealloco
+void freeFileSystem(){  
+    //DEVO ANNULLARE I PUNTATORI
     for (int i=0;i<MAXENTRY;i++){
-        if(directory[i].files!=NULL)free(directory[i].files);
-        if(directory[i].sub_directories!=NULL)free(directory[i].sub_directories);
-        
+        fs.directory[i].par_directory=NULL;
+        for(int j=0;j<MAX_SUB;j++){
+            fs.directory[i].sub_directories[j]=NULL;
+        }
+        for(int j=0;j<MAX_FILE;j++){
+            fs.directory[i].files[j].par_directory=NULL;
+        }
     }
-    if(directory!=NULL)free(directory);
-    if(fat!=NULL)free(fat);
-    if(dataBlocks!=NULL)free(dataBlocks);
+    //modifico la memoria
+    memcpy(mmapped_buffer, &fs,sizeof(struct FileSystem));
+    if(msync(mmapped_buffer,len,MS_SYNC) != 0)handle_error("Errore: msync");
     //Dealloca la memoria
-    if (mmapped_buffer!=NULL){
-        if(munmap(mmapped_buffer,(MAXENTRY*sizeof(struct DirectoryData))+(FATSIZE*sizeof(struct FATEntry))+(FATSIZE*sizeof(struct DataBlock)))==-1)handle_error("Error munmap fd\n");
-        mmapped_buffer=NULL;
+    if(mmapped_buffer!=NULL){
+        if(munmap(mmapped_buffer,len)==-1)handle_error("Error munmap fd\n");
     }
-    remove("filesystem.bin");//elimina il file
+    //Chiudi il file descriptor
+    close(fd);
 }
 
 //Funzioni possibili
 int funzDisponibili(struct DirectoryData* dir){
     if(dir==NULL)handle_error("Errore: Directory corrente inesistente\n");
     int subp=0,filep=0;//se 0 non ci sono se 1 ci sono
-    for(int i=0;i<MAX_SUB;i++){//Controlla se esistono subdirectory
-        if(dir->sub_directories[i].directoryname[0]!='\0'){
+    for(int i=0;i<MAX_SUB;i++){//Controlla se esistono subfs.directory
+        if(dir->sub_directories[i]->directoryname[0]!='\0'){
             subp=1;
             break;
         }
@@ -98,33 +135,28 @@ int funzDisponibili(struct DirectoryData* dir){
     }
     if(subp==0 && filep==0)return 1;//vuoto
     else if(subp==0 && filep==1)return 2;//solo file
-    else if(subp==1 && filep==0)return 3;//solo subdirectory
+    else if(subp==1 && filep==0)return 3;//solo subfs.directory
     else if(subp==1 && filep==1)return 4;//entrambe
     return -1;
 }
 
-int main(){
+int main(int argc,char *argv[]){
     char buffer[1024];//Input
     size_t buf_len = sizeof(buffer);
-    initializeFileSystem();
-    //Inizializza FAT
-    for(int i=0;i<FATSIZE;i++){
-        fat[i].used=0;
-        fat[i].next=-1;
+    int erase=-1;
+    if(argc>1)erase=atoi(argv[1]);
+    //CREAZIONE DISCO
+    if(erase==1){
+        creazioneSistema();
+        initializeFileSystem();
+    }else{
+        recuperoSistema();
+        recuperoGerarchia();
     }
-    //Root
-    strcpy(directory[0].directoryname,"root");
-    directory[0].par_directory=NULL;
-    //Inizializza root
-    for(int i=0;i<MAX_FILE;i++){
-        directory[0].files[i].size=0;//per controlli futuri
-    }
-    for(int i=0; i<MAX_SUB;i++){
-        directory[0].sub_directories[i].directoryname[0]='\0';//per controlli futuri
-    }
-    struct DirectoryData *dir_root=dir_corrente(&directory[0]);
+    //FINE DISCO
+    struct DirectoryData *dir_root=dir_corrente(&fs.directory[0]);
     if(dir_root==NULL)handle_error("Errore: Inizializzazione variabile dir_root\n");
-    struct DirectoryData *dir_corr=dir_corrente(&directory[0]);//Cambia con le operazioni
+    struct DirectoryData *dir_corr=dir_corrente(&fs.directory[0]);//Cambia con le operazioni
     if(dir_root==NULL)handle_error("Errore: Inizializzazione variabile dir_corr\n");
     printf("Creazione File System.....\n");
     //Inizio programma
@@ -178,7 +210,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break;
             }
-            createFile(buffer,FILESIZE,dir_corr,fat,dataBlocks);
+            createFile(buffer,FILESIZE,dir_corr,fs.fat,fs.dataBlocks);
         }else if(ope_disponibili>=1 && strcmp(buffer,"CREATEDIR")==0){
             while(true){
                 printf("Scrivi il nome della subdirectory: ");
@@ -190,7 +222,7 @@ int main(){
                 buffer[strlen(buffer)-1]= '\0';
                 if(strlen(buffer)!=0)break; 
             }
-            createDir(buffer,dir_corr,directory);
+            createDir(buffer,dir_corr,fs.directory);
         }else if(ope_disponibili>=1 && strcmp(buffer,"LISTDIR")==0){
             while(true){
                 printf("Scrivi il nome della subdirectory o CORR per stampare quella corrente: ");
@@ -238,7 +270,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            seekFile(buffer,dir_corr,fat,dataBlocks);
+            seekFile(buffer,dir_corr,fs.fat,fs.dataBlocks);
         }else if((ope_disponibili==2 || ope_disponibili==4) && strcmp(buffer,"READFILE")==0){
             while(true){
                 printf("Scrivi il nome del file da leggere: ");
@@ -249,7 +281,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            readFile(buffer,dir_corr,fat,dataBlocks);
+            readFile(buffer,dir_corr,fs.fat,fs.dataBlocks);
         }else if((ope_disponibili==2 || ope_disponibili==4) && strcmp(buffer,"READFILEP")==0){
             while(true){
                 printf("Scrivi il nome del file da leggere partendo dal suo puntatore: ");
@@ -261,7 +293,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            readFileFrom(buffer,dir_corr,fat,dataBlocks);
+            readFileFrom(buffer,dir_corr,fs.fat,fs.dataBlocks);
         }else if((ope_disponibili==2 || ope_disponibili==4) && strcmp(buffer,"WRITEFILE")==0){
             while(true){
                 printf("Scrivi il nome del file su cui scrivere: ");
@@ -272,7 +304,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            writeFile(buffer,dir_corr,fat,dataBlocks);  
+            writeFile(buffer,dir_corr,fs.fat,fs.dataBlocks);
         }else if((ope_disponibili==2 || ope_disponibili==4) && strcmp(buffer,"WRITEFILEP")==0){
             while(true){
                 printf("Scrivi il nome del file su cui scrivere partendo dal puntatore: ");
@@ -284,7 +316,7 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            writeFileForm(buffer,dir_corr,fat,dataBlocks);
+            writeFileForm(buffer,dir_corr,fs.fat,fs.dataBlocks);
         }else if((ope_disponibili==2 || ope_disponibili==4) && strcmp(buffer,"ERASEFILE")==0){
             while(true){
                 printf("Scrivi il nome del file da eliminare: ");
@@ -295,14 +327,14 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            eraseFile(buffer,dir_corr,fat,dataBlocks);
+            eraseFile(buffer,dir_corr,fs.fat,fs.dataBlocks);
             /*DEBUG
             for(int i=0;i<FATSIZE;i++){
                 if(fat[i].used!=0)printf("\tfat[%d]\n",i);
             }*/
         }else if((ope_disponibili==3 || ope_disponibili==4 || strcmp(dir_corr->directoryname,"root")!=0) && strcmp(buffer,"CHANGEDIR")==0){
             while(true){
-                if(strcmp(dir_corr->directoryname,"root")!=0 && dir_corr->par_directory!=NULL) printf("Scrivi il nome della subdirectory o PREC per andare alla parentdirectory %s: ",dir_corr->par_directory->directoryname);
+                if(strcmp(dir_corr->directoryname,"root")!=0 && dir_corr->par_directory!=NULL) printf("Scrivi il nome della subfs.directory o PREC per andare alla parentfs.directory %s: ",dir_corr->par_directory->directoryname);
                 else printf("Scrivi il nome della subdirectory: ");
                 if(fgets(buffer, sizeof(buffer), stdin) != (char*)buffer){
                     fprintf(stderr, "Error while reading from stdin, exiting...\n");
@@ -322,19 +354,19 @@ int main(){
                 buffer[strlen(buffer)-1]='\0';
                 if(strlen(buffer)!=0)break; 
             }
-            eraseDir(buffer,dir_corr,directory,fat,dataBlocks);
+            eraseDir(buffer,dir_corr,fs.directory,fs.fat,fs.dataBlocks);
             /*DEBUG
             for(int i=0;i<MAXENTRY;i++){
-                if(directory[i].directoryname[0]!='\0'){
-                    printf("\tdir: %s\n",directory[i].directoryname);//directory presenti
+                if(fs.directory[i].fs.directoryname[0]!='\0'){
+                    printf("\tdir: %s\n",fs.directory[i].fs.directoryname);//fs.directory presenti
                     for(int s=0;s<MAX_SUB;s++){//sub_dir presenti
-                        if (directory[i].sub_directories[s].directoryname[0]!='\0'){
-                            printf("\t\tsubdir: %s\n",directory[i].sub_directories[s].directoryname);
+                        if (fs.directory[i].sub_directories[s].fs.directoryname[0]!='\0'){
+                            printf("\t\tsubdir: %s\n",fs.directory[i].sub_directories[s].fs.directoryname);
                         }
                     }
                     for(int f=0;f<MAX_FILE;f++){//file presenti
-                        if (directory[i].files[f].size!=0){
-                            printf("\t\tfile: %s\n",directory[i].files[f].filename);
+                        if (fs.directory[i].files[f].size!=0){
+                            printf("\t\tfile: %s\n",fs.directory[i].files[f].filename);
                         }
                     } 
                 }
@@ -347,6 +379,7 @@ int main(){
             }
             */
         }
+        sleep(1);
     }
     //Fine programma
     printf("Chiusura File System.....\n");

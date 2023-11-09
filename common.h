@@ -31,9 +31,11 @@ struct FileData{
 
 //Struttura per directory
 struct DirectoryData{
-    char directoryname[50]; 
-    struct FileData *files;
-    struct DirectoryData *sub_directories;
+    char directoryname[20];
+    int dir_indice; 
+    int parentdir_indice; 
+    struct FileData files[10];
+    struct DirectoryData *sub_directories[10];
     struct DirectoryData *par_directory;//NULL se root
 };
 
@@ -46,6 +48,13 @@ struct FATEntry{
 //Struttura per i blocchi di dati
 struct DataBlock{
     char data[1024];//Blocco dati da 1024 byte
+};
+
+//Struttura che contiene tutto
+struct FileSystem{
+    struct DirectoryData directory[MAXENTRY];
+    struct FATEntry fat[FATSIZE];
+    struct DataBlock dataBlocks[FATSIZE];
 };
 
 //FUNZIONI

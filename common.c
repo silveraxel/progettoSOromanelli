@@ -44,7 +44,7 @@ void createFile(char* filename, int size, struct DirectoryData* parentDirectory,
             }
         }
     }else{
-        printf("Errore: Nome della directory troppo lungo\n");
+        printf("Errore: Nome del file troppo lungo\n");
         return;
     }
     //Cerca uno spazio libero nella directory
@@ -129,8 +129,8 @@ int searchFileAllAux(char* filename,struct DirectoryData* dir,char* per){
         ret++;
     }else{
         for(int i=0; i<MAX_SUB;i++){//cerca nelle subdirectory di root
-            if(dir->sub_directories[i].directoryname[0]!='\0'){
-                ret+=searchFileAllAux(filename,&dir->sub_directories[i],percorso);
+            if(dir->sub_directories[i]->directoryname[0]!='\0'){
+                ret+=searchFileAllAux(filename,dir->sub_directories[i],percorso);
             }
         }
     }
@@ -448,9 +448,9 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
         return;
     }
     //Verifica esistenza del nome
-    if(strlen(directoryname)<sizeof(parentDirectory->sub_directories[0].directoryname)){
+    if(strlen(directoryname)<sizeof(parentDirectory->sub_directories[0]->directoryname)){
         for(int i=0; i<MAX_SUB;i++){
-            if(parentDirectory->sub_directories[i].directoryname[0]!='\0' && strcmp(parentDirectory->sub_directories[i].directoryname,directoryname)==0){
+            if(parentDirectory->sub_directories[i]->directoryname[0]!='\0' && strcmp(parentDirectory->sub_directories[i]->directoryname,directoryname)==0){
                 printf("Errore: Cambia il nome della directory, gia' esiste\n");
                 return;
             }
@@ -463,7 +463,7 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
     int k=-1;
     for(int i=0;i<MAX_SUB;i++){
         //DEBUG printf("numero sub[%d]",i);
-        if (parentDirectory->sub_directories[i].directoryname[0]=='\0'){
+        if (parentDirectory->sub_directories[i]->directoryname[0]=='\0'){
             k=i;
             break;
         }
@@ -493,10 +493,12 @@ void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct 
         directory[j].files[i].size=0;//per controlli futuri
     }
     for(int i=0; i<MAX_SUB;i++){
-        directory[j].sub_directories[i].directoryname[0]='\0';//per controlli futuri
+        directory[j].sub_directories[i]->directoryname[0]='\0';//per controlli futuri
     }
     directory[j].par_directory=parentDirectory;
-    parentDirectory->sub_directories[k]=directory[j];
+    directory[j].dir_indice=j;
+    directory[j].parentdir_indice=parentDirectory->dir_indice;
+    parentDirectory->sub_directories[k]=&directory[j];
     printf("Creazione della subdirectory %s con successo\n",directoryname);
 }
 
@@ -512,9 +514,9 @@ void eraseDir(char* directoryname,struct DirectoryData* parentDirectory,struct D
     //Cerco dir
     struct DirectoryData* discard_dir=NULL;
     for(int s=0;s<MAX_SUB;s++){//trovo la subdirectory
-        if(parentDirectory->sub_directories[s].directoryname[0]!='\0'){
-            if(strcmp(directoryname,parentDirectory->sub_directories[s].directoryname)==0){
-                discard_dir=dir_corrente(&parentDirectory->sub_directories[s]);
+        if(parentDirectory->sub_directories[s]->directoryname[0]!='\0'){
+            if(strcmp(directoryname,parentDirectory->sub_directories[s]->directoryname)==0){
+                discard_dir=dir_corrente(parentDirectory->sub_directories[s]);
                 if(discard_dir==NULL)handle_error("Errore: Copia della directory da eliminare\n");
                 break;
             }
@@ -537,8 +539,8 @@ void eraseDirAux(struct DirectoryData* dir,struct DirectoryData* directory,struc
         }
     }       
     for(int s=0;s<MAX_SUB;s++){//Elimina sub_dir
-        if (dir->sub_directories[s].directoryname[0]!='\0'){
-            eraseDirAux(&dir->sub_directories[s],directory,fat,dataBlocks);
+        if (dir->sub_directories[s]->directoryname[0]!='\0'){
+            eraseDirAux(dir->sub_directories[s],directory,fat,dataBlocks);
         }
     }
     for(int i=0;i<MAXENTRY;i++){//Pulisce la struttura della directory
@@ -571,8 +573,8 @@ struct DirectoryData* changeDir(struct DirectoryData* dir,char *dirname){
         return new_dir;
     }else{
         for(int i=0;i<MAX_SUB;i++){//Cerca nella subdirectory
-            if(strcmp(dirname,dir->sub_directories[i].directoryname)==0){
-                new_dir=dir_corrente(&dir->sub_directories[i]);
+            if(strcmp(dirname,dir->sub_directories[i]->directoryname)==0){
+                new_dir=dir_corrente(dir->sub_directories[i]);
                 if(new_dir==NULL)handle_error("Errore nel cambio della nuova directory\n");
                 printf("Ora ti trovi nella directory %s\n",new_dir->directoryname);
                 return new_dir;
@@ -594,8 +596,8 @@ void listDir(char* dirname,struct DirectoryData* dir){
         printf("Subdirectory presenti:\n");
         int count=1;
         for(int i=0;i<MAX_SUB;i++){
-            if(dir->sub_directories[i].directoryname[0]!='\0'){
-                printf("[%d]\t%s\n",count,dir->sub_directories[i].directoryname);
+            if(dir->sub_directories[i]->directoryname[0]!='\0'){
+                printf("[%d]\t%s\n",count,dir->sub_directories[i]->directoryname);
                 count++;
             }
         }
@@ -614,15 +616,15 @@ void listDir(char* dirname,struct DirectoryData* dir){
     //Cerca la dir nella directory corrente
         struct DirectoryData* copy=NULL;
         for(int i=0;i<MAX_SUB;i++){
-            if(dir->sub_directories[i].directoryname[0]!='\0'){
-                if(strcmp(dirname,dir->sub_directories[i].directoryname)==0){//Trovata e stampa
-                    copy=copy_dir(&dir->sub_directories[i]);
+            if(dir->sub_directories[i]->directoryname[0]!='\0'){
+                if(strcmp(dirname,dir->sub_directories[i]->directoryname)==0){//Trovata e stampa
+                    copy=copy_dir(dir->sub_directories[i]);
                     printf("Oggetti nella subdirectory %s:\n",copy->directoryname);
                     printf("Subdirectory presenti in:\n");
                     int count=1;
                     for(int i=0;i<MAX_SUB;i++){
-                        if(copy->sub_directories[i].directoryname[0]!='\0'){
-                            printf("[%d]\t%s\n",count,copy->sub_directories[i].directoryname);
+                        if(copy->sub_directories[i]->directoryname[0]!='\0'){
+                            printf("[%d]\t%s\n",count,copy->sub_directories[i]->directoryname);
                             count++;
                         }
                     }
@@ -653,8 +655,14 @@ struct DirectoryData* copy_dir(struct DirectoryData* dir){
     if(dir_corr==NULL)handle_error("Errore: Allocazione copia della struttura\n");
     // Copia i dati dal nodo originale al nuovo nodo
     if(strncpy(dir_corr->directoryname,dir->directoryname,sizeof(dir_corr->directoryname))==NULL)handle_error("Errore strncpy copy_dir\n");
-    dir_corr->files= dir->files;
-    dir_corr->sub_directories= dir->sub_directories;
+    dir_corr->dir_indice=dir->dir_indice;
+    dir_corr->parentdir_indice=dir->parentdir_indice;
+    for(int i=0;i<MAX_FILE;i++){
+        dir_corr->files[i]=dir->files[i];
+    }
+    for(int j=0;j<MAX_SUB;j++){
+        dir_corr->sub_directories[j]=dir->sub_directories[j];
+    }
     dir_corr->par_directory=dir->par_directory;
     return dir_corr;
 }
