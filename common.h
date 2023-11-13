@@ -11,6 +11,9 @@
 #define MAXENTRY 128//totale directory nel sistema
 #define FILESIZE 512//grandezza iniziale del file
 #define FATSIZE 1024//max blocchi disponibili
+#define LENFAT (sizeof(struct FATEntry)*FATSIZE)
+#define LENBLOCK (sizeof(struct DataBlock)*FATSIZE)
+#define LENDIR (sizeof(struct DirectoryData)*MAXENTRY)
 
 //Struttura dati apertura file
 typedef struct filehandler{
@@ -22,7 +25,7 @@ typedef struct filehandler{
 
 //Struttura per file
 struct FileData{
-    char filename[50];  
+    char filename[20];  
     int size;//Dimensione del file, default e poi aumenta quando scrivi
     int start_block;//Blocco di partenza nella FAT
     int ind_puntatore;//Posizione del puntatore
@@ -41,8 +44,8 @@ struct DirectoryData{
 
 //Struttura per FAT
 struct FATEntry{
-    int used;//0 indica che il blocco è libero, 1 indica che è allocato
-    int next;//Numero del prossimo blocco nella catena di allocazione, default=-1
+    int used;//0 indica che il blocco è libero,1 e occupato
+    int next;//-1 indica non ha il prossimo, >0 indica il prossimo blocco
 };
 
 //Struttura per i blocchi di dati
@@ -63,33 +66,31 @@ struct FileSystem{
 int containsForbiddenChars(const char *input);
 
 //Funzioni file
-void createFile(char* filename, int size, struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-void eraseFile(char* filename, struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-void writeFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks); //potentially extending the file boundaries
+void createFile(char* filename, int size, struct DirectoryData parentDirectory, void *mmapped_buffer);
+void eraseFile(char* filename, struct DirectoryData parentDirectory, void *mmapped_buffer);
+void writeFile(char* filename,struct DirectoryData parentDirectory, void *mmapped_buffer);
+void readFile(char* filename,struct DirectoryData parentDirectory, void *mmapped_buffer);
+
 //Scrive nel file partendo dal puntatore del file
-void writeFileForm(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-void readFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-//Legge nel file partendo dal puntatore del file
-void readFileFrom(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-//Sposta il puntatore dentro al file
-void seekFile(char* filename,struct DirectoryData* parentDirectory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-struct FileData* searchFile(char* filename,struct DirectoryData* dir);
+void seekFile(char* filename,struct DirectoryData parentDirectory, void *mmapped_buffer);
+void readFileFrom(char* filename,struct DirectoryData parentDirectory, void *mmapped_buffer);
+void writeFileForm(char* filename,struct DirectoryData parentDirectory, void *mmapped_buffer);
+int searchFile(char* filename,struct DirectoryData parentDirectory);
 
 //Funzioni directory
-void createDir(char* directoryname,struct DirectoryData* parentDirectory,struct DirectoryData* directory);
-void eraseDir(char* directoryname,struct DirectoryData* parentDirectory,struct DirectoryData* directory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-void eraseDirAux(struct DirectoryData* dir,struct DirectoryData* directory,struct FATEntry* fat,struct DataBlock* dataBlocks);
-struct DirectoryData* changeDir(struct DirectoryData* dir,char *dirname);
-void listDir(char* dirname,struct DirectoryData* dir);
+void createDir(char* directoryname,struct DirectoryData parentDirectory,void *mmapped_buffer);
+int eraseDir(char* directoryname,struct DirectoryData parentDirectory, void *mmapped_buffer);
+void eraseDirAux(int ind,void *mmapped_buffer);
+struct DirectoryData changeDir(struct DirectoryData dir,char *dirname,void *mmapped_buffer);
+void listDir(char* dirname,struct DirectoryData dir,void *mmapped_buffer);
 
 //Funzioni ausiliarie
-FileHandle openFile(struct FileData* new_file,int mode,struct FATEntry* fat,struct DataBlock* dataBlocks);
-//Copia che non modifica l'originale
-struct DirectoryData* copy_dir(struct DirectoryData* dir);
-//Puntatore della directory corrrente
-struct DirectoryData* dir_corrente(struct DirectoryData* dir);
+FileHandle openFile(struct FileData new_file,int mode,void *mmapped_buffer);
+struct DirectoryData puntatore_dir(int k,void *mmapped_buffer);
+
 //Cerca in tutto il sistema
-void searchFileAll(char* filename,struct DirectoryData* dir);
-int searchFileAllAux(char* filename,struct DirectoryData* dir,char* per);
+void searchFileAll(char* filename, void *mmapped_buffer);
+int searchFileAllAux(char* filename,struct DirectoryData dir,char* per,void *mmapped_buffer);
+
 //Aggiunge un blocco al file se disponibile
-int addBloccoVuoto(int ind_now,struct FATEntry* fat,struct DataBlock* dataBlocks);
+int addBloccoVuoto(int ind_now,void *mmapped_buffer);
